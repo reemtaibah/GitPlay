@@ -1,0 +1,68 @@
+#include <iostream>          // standard I/O routines, prefix with "std::"
+#include "Eigen/Dense"       // basic Eigen header files
+#include "Eigen/Eigenvalues" // header files for eigenvalues
+
+using Eigen::MatrixXd; // add to namespace: "MatrixXd" translates to "Eigen::MatrixXd"
+using Eigen::SelfAdjointEigenSolver;
+
+// using namespace std; // [STYLE] try NOT to use this
+
+int main(){
+
+    // ==== input ======
+    // [STYLE] keep in one place, always provide info and cross checks for input
+
+    // input: number of points and box size,
+    std::cout<<"enter number of points N and box size L for [-L,L]"<<std::endl;
+    int nPoints;
+    double boxSize;
+    std::cin>>nPoints>>boxSize; // get blank-separated values
+    std::cout<<"\nsolving HO eigenvalue problem with N = "<<nPoints
+            <<" points on interval ["<<-boxSize<<","<<boxSize<<"] "<<std::endl;
+
+
+
+    // ==== matrix setup ============
+
+    // create matrix filled with zeros
+    MatrixXd ham=MatrixXd::Zero(nPoints,nPoints);
+
+    // auxiliary variable - grid spacing
+    double h=2*boxSize/(nPoints-1);
+    //[STYLE] as a rule, avoid auxiliary variables, unless code gets very hard to read
+
+    // fill in the FD hamiltonian: diagonal
+    //[STYLE] better to use ham.rows() than nPoints
+    for(int i=0;i<ham.rows();i++)
+    {
+        ham(i,i)=0.5*(2/(h*h) + std::pow((-(nPoints-1)/2.+i)*h,2));
+    }
+    // off-diagonal
+    for(int i=1;i<ham.rows();i++){
+        ham(i-1,i)=-0.5/(h*h);
+        ham(i,i-1)=ham(i-1,i);
+        // [PERFORMANCE] no need to re-compute, use symmetry of matrix
+    }
+
+//    // inspect matrix (for debugging only)
+//    std::cout<<ham<<std::endl;
+//    std::exit(0); // terminate execution and return 0
+
+    // ====== eigen problem =================
+
+    // create a eigensolver object (for self-adjoint matrix)
+    SelfAdjointEigenSolver<MatrixXd> eslv;
+
+    // solve the eigenproblem
+    eslv.compute(ham);
+
+    MatrixXd exact(5,1); // matrix to contain first few exact eigenvalues
+    for(int i=0;i<exact.rows();i++)exact(i,0)=0.5+i;
+
+    std::cout<<"\nLowest "<<exact.rows()<<" eigenvalues of discrete problem:\n"
+            <<eslv.eigenvalues().block(0,0,exact.rows(),1)<<std::endl; // print the differences
+
+    // output: errors
+    std::cout<<"\nErrors:\n"
+            <<eslv.eigenvalues().block(0,0,exact.rows(),1)-exact<<std::endl; // print the differences
+}
